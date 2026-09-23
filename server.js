@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 
@@ -5,11 +6,10 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-const PORT = process.env.PORT || 10000;
+const users = [];
 
-// Test endpoint
+// Test route
 app.get("/", (req, res) => {
   res.json({
     success: true,
@@ -19,7 +19,7 @@ app.get("/", (req, res) => {
 
 // REGISTER
 app.post("/register", (req, res) => {
-  const { name, email, password, phone } = req.body;
+  const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({
@@ -28,13 +28,33 @@ app.post("/register", (req, res) => {
     });
   }
 
+  const existingUser = users.find(
+    user => user.email.toLowerCase() === email.toLowerCase()
+  );
+
+  if (existingUser) {
+    return res.status(409).json({
+      success: false,
+      message: "User already exists"
+    });
+  }
+
+  const user = {
+    id: Date.now().toString(),
+    name,
+    email,
+    password
+  };
+
+  users.push(user);
+
   res.json({
     success: true,
     message: "Registration successful",
     user: {
-      name,
-      email,
-      phone: phone || ""
+      id: user.id,
+      name: user.name,
+      email: user.email
     }
   });
 });
@@ -50,22 +70,31 @@ app.post("/login", (req, res) => {
     });
   }
 
+  const user = users.find(
+    user =>
+      user.email.toLowerCase() === email.toLowerCase() &&
+      user.password === password
+  );
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid email or password"
+    });
+  }
+
   res.json({
     success: true,
     message: "Login successful",
     user: {
-      email
+      id: user.id,
+      name: user.name,
+      email: user.email
     }
   });
 });
 
-// Health check
-app.get("/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "Backend healthy"
-  });
-});
+const PORT = process.env.PORT || 10000;
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Saifu360Pay backend running on port ${PORT}`);
