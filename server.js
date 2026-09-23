@@ -1,17 +1,16 @@
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
-const axios = require("axios");
-
-dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 10000;
 
+// Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-const PORT = process.env.PORT || 5000;
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+// Temporary user storage
+const users = [];
 
 // Health check
 app.get("/", (req, res) => {
@@ -21,97 +20,119 @@ app.get("/", (req, res) => {
   });
 });
 
-// Initialize Paystack payment
-app.post("/api/payment/initialize", async (req, res) => {
+// Register
+app.post("/register", (req, res) => {
   try {
-    const { email, amount, reference } = req.body;
+    const { name, email, password, phone } = req.body;
 
-    if (!email || !amount) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email and amount are required"
+        message: "Email and password are required"
       });
     }
 
-    if (!PAYSTACK_SECRET_KEY) {
-      return res.status(500).json({
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    const existingUser = users.find(
+      user => user.email === normalizedEmail
+    );
+
+    if (existingUser) {
+      return res.status(409).json({
         success: false,
-        message: "Paystack secret key is not configured"
+        message: "User already exists"
       });
     }
 
-    const response = await axios.post(
-      "https://api.paystack.co/transaction/initialize",
-      {
-        email,
-        amount: Math.round(Number(amount) * 100),
-        ...(reference ? { reference } : {})
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
+    const user = {
+      id: Date.now().toString(),
+      name: name || "",
+      email: normalizedEmail,
+      password: String(password),
+      phone: phone || ""
+    };
 
-    return res.json({
+    users.push(user);
+
+    res.status(201).json({
       success: true,
-      data: response.data.data
+      message: "Registration successful",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone
+      }
     });
-
   } catch (error) {
-    console.error(
-      "Payment initialization error:",
-      error.response?.data || error.message
-    );
+    console.error("Register error:", error);
 
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: "Unable to initialize payment"
+      message: "Registration failed"
     });
   }
 });
 
-// Verify Paystack payment
-app.get("/api/payment/verify/:reference", async (req, res) => {
+// Login
+app.post("/login", (req, res) => {
   try {
-    const { reference } = req.params;
+    const { email, password } = req.body;
 
-    if (!PAYSTACK_SECRET_KEY) {
-      return res.status(500).json({
+    if (!email || !password) {
+      return res.status(400).json({
         success: false,
-        message: "Paystack secret key is not configured"
+        message: "Email and password are required"
       });
     }
 
-    const response = await axios.get(
-      `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`
-        }
-      }
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    const user = users.find(
+      user =>
+        user.email === normalizedEmail &&
+        user.password === String(password)
     );
 
-    return res.json({
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password"
+      });
+    }
+
+    res.json({
       success: true,
-      data: response.data.data
+      message: "Login successful",
+      token: "saifu360pay-" + user.id,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone
+      }
     });
-
   } catch (error) {
-    console.error(
-      "Payment verification error:",
-      error.response?.data || error.message
-    );
+    console.error("Login error:", error);
 
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: "Unable to verify payment"
+      message: "Login failed"
     });
   }
 });
 
-app.listen(PORT, () => {
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Endpoint not found",
+    path: req.path
+  });
+});
+
+// Start server
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Saifu360Pay backend running on port ${PORT}`);
 });
