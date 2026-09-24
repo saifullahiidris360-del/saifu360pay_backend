@@ -1,4 +1,3 @@
-
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
@@ -16,7 +15,6 @@ app.use(express.urlencoded({ extended: true }));
 // ===============================
 // TEMPORARY USER STORAGE
 // ===============================
-// Wannan na gwaji ne. Daga baya za mu haɗa database.
 const users = [];
 
 // ===============================
@@ -50,7 +48,7 @@ app.post("/register", (req, res) => {
     const cleanEmail = String(email).trim().toLowerCase();
 
     const existingUser = users.find(
-      user => user.email === cleanEmail
+      (user) => user.email === cleanEmail
     );
 
     if (existingUser) {
@@ -65,14 +63,14 @@ app.post("/register", (req, res) => {
       name: name || "",
       email: cleanEmail,
       phone: phone || "",
-      password: password,
+      password: String(password),
       walletBalance: 0,
       createdAt: new Date().toISOString()
     };
 
     users.push(user);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Registration successful",
       user: {
@@ -83,11 +81,10 @@ app.post("/register", (req, res) => {
         walletBalance: user.walletBalance
       }
     });
-
   } catch (error) {
     console.error("REGISTER ERROR:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Registration failed"
     });
@@ -110,4 +107,70 @@ app.post("/login", (req, res) => {
 
     const cleanEmail = String(email).trim().toLowerCase();
 
-    const
+    const user = users.find(
+      (user) => user.email === cleanEmail
+    );
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password"
+      });
+    }
+
+    if (user.password !== String(password)) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        walletBalance: user.walletBalance
+      }
+    });
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Login failed"
+    });
+  }
+});
+
+// ===============================
+// 404 HANDLER
+// ===============================
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Endpoint not found"
+  });
+});
+
+// ===============================
+// ERROR HANDLER
+// ===============================
+app.use((err, req, res, next) => {
+  console.error("SERVER ERROR:", err);
+
+  res.status(500).json({
+    success: false,
+    message: "Internal server error"
+  });
+});
+
+// ===============================
+// START SERVER
+// ===============================
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Saifu360Pay Backend running on port ${PORT}`);
+});
