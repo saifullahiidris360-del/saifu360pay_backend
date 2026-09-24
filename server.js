@@ -3,13 +3,21 @@ const express = require("express");
 const cors = require("cors");
 
 const app = express();
+const PORT = process.env.PORT || 10000;
 
-app.use(cors());
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+// Temporary users storage
 const users = [];
 
-// Test route
+// HOME / HEALTH CHECK
 app.get("/", (req, res) => {
   res.json({
     success: true,
@@ -19,12 +27,12 @@ app.get("/", (req, res) => {
 
 // REGISTER
 app.post("/register", (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, phone, password } = req.body;
 
-  if (!name || !email || !password) {
+  if (!email || !password) {
     return res.status(400).json({
       success: false,
-      message: "Name, email and password are required"
+      message: "Email and password are required"
     });
   }
 
@@ -41,20 +49,22 @@ app.post("/register", (req, res) => {
 
   const user = {
     id: Date.now().toString(),
-    name,
-    email,
-    password
+    name: name || "",
+    email: email.toLowerCase(),
+    phone: phone || "",
+    password: password
   };
 
   users.push(user);
 
-  res.json({
+  res.status(201).json({
     success: true,
     message: "Registration successful",
     user: {
       id: user.id,
       name: user.name,
-      email: user.email
+      email: user.email,
+      phone: user.phone
     }
   });
 });
@@ -89,12 +99,28 @@ app.post("/login", (req, res) => {
     user: {
       id: user.id,
       name: user.name,
-      email: user.email
+      email: user.email,
+      phone: user.phone
     }
   });
 });
 
-const PORT = process.env.PORT || 10000;
+// TEST LOGIN ENDPOINT
+app.get("/login", (req, res) => {
+  res.json({
+    success: true,
+    message: "Login endpoint is available. Use POST /login."
+  });
+});
+
+// 404
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Endpoint not found",
+    path: req.path
+  });
+});
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Saifu360Pay backend running on port ${PORT}`);
